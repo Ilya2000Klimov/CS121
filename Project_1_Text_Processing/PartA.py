@@ -3,10 +3,10 @@ import sys
 def read_file(filename):
     tokens = []
     try:
-        with open(filename, 'r') as file:
+        with open(filename, 'r', encoding='utf-8') as file:
             for line in file:
                 # Removing non-alphanumeric characters and converting to lowercase
-                cleaned_line = ''.join(char.lower() if char.isalnum() else ' ' for char in line)
+                cleaned_line = ''.join(char.lower() if (char.isdigit() or char.isalpha() and char.encode('ascii', 'ignore').decode() != '') else ' ' for char in line)
                 words = cleaned_line.split()
                 tokens.extend(words)
         return tokens
