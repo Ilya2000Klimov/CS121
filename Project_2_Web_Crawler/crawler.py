@@ -1,6 +1,8 @@
 import logging
 import re
 from urllib.parse import urlparse
+from urllib.parse import urldefrag, urljoin
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +41,32 @@ class Crawler:
 
         Suggested library: lxml
         """
-        outputLinks = []
-        return outputLinks
+        outputLinks = []  # Initialize empty list for URLs
+
+        url = url_data['url']  # Extract the URL from url_data
+        content = url_data['content']  # Extract the HTML content from url_data
+        http_code = url_data['http_code']  # Extract the HTTP status code
+
+        if http_code == 200 and content:  # Check if the HTTP status code is OK and content is not empty
+            soup = BeautifulSoup(content, "html.parser")  # Parse the HTML content
+
+            for link_tag in soup.find_all('a', href=True):  # Find all <a> tags with an href attribute
+                href = link_tag.get('href')  # Extract the href attribute
+                href, _ = urldefrag(href)  # Remove fragment from URL
+
+                parsed_href = urlparse(href)  # Parse the href
+
+                # Convert relative URLs to absolute URLs
+                if not parsed_href.netloc:
+                    href = urljoin(url, parsed_href.geturl())
+                elif not parsed_href.scheme:
+                    parsed_href = parsed_href._replace(scheme=urlparse(url).scheme)
+                    href = parsed_href.geturl()
+
+                outputLinks.append(href)  # Add the absolute URL to the list
+
+
+        return list(set(outputLinks))  # Return the list of unique URLs, but first removes duplicates
 
     def is_valid(self, url):
         """
@@ -48,6 +74,19 @@ class Crawler:
         filter out crawler traps. Duplicated urls will be taken care of by frontier. You don't need to check for duplication
         in this method
         """
+        #Respect robot.txt
+        #find the robots.txt file
+        
+        
+        #Check for crawler traps
+        #Check for valid content
+        #Check for valid size
+        #Check for valid content-type
+        #Check for valid http code
+        #Check for valid redirection
+
+        #print("url: ", url)
+
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
             return False
