@@ -2,6 +2,7 @@ import logging
 import os
 from collections import deque
 import pickle
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +23,23 @@ class Frontier:
     URL_QUEUE_FILE_NAME = os.path.join(".", FRONTIER_DIR_NAME, "url_queue.pkl")
     URL_SET_FILE_NAME = os.path.join(".", FRONTIER_DIR_NAME, "url_set.pkl")
     FETCHED_FILE_NAME = os.path.join(".", FRONTIER_DIR_NAME, "fetched.pkl")
+    
+    WORDS_FREQ = os.path.join(".", FRONTIER_DIR_NAME, "word_freq.pkl")
+    TRAP_URLS = os.path.join(".", FRONTIER_DIR_NAME, "trap_urls.pkl")
+    SUBDOMAINS = os.path.join(".", FRONTIER_DIR_NAME, "subdomains.pkl")
+    VISITED_PAGES = os.path.join(".", FRONTIER_DIR_NAME, "visited_pages.pkl")
+    
 
 
     def __init__(self):
         self.urls_queue = deque()
         self.urls_set = set()
         self.fetched = 0
+        #Added analitics, such as word frequency, and traps
+        self.words_freq = {}
+        self.trap_urls = []
+        self.subdomains = {}
+        self.visited_pages = {}
 
     def add_url(self, url):
         """
@@ -37,6 +49,12 @@ class Frontier:
         if not self.is_duplicate(url):
             self.urls_queue.append(url)
             self.urls_set.add(url)
+            
+            # Extract subdomain from url and increment its count
+            subdomain = urlparse(url).netloc
+            if subdomain not in self.subdomains:
+                self.subdomains[subdomain] = 0
+            self.subdomains[subdomain] += 1
 
     def is_duplicate(self, url):
         return url in self.urls_set
@@ -68,6 +86,17 @@ class Frontier:
         pickle.dump(self.urls_queue, url_queue_file)
         pickle.dump(self.urls_set, url_set_file)
         pickle.dump(self.fetched, fetched_file)
+        
+        # Save analytics
+        word_freq_file = open(self.WORDS_FREQ, "wb")
+        trap_urls_file = open(self.TRAP_URLS, "wb")
+        subdomains_file = open(self.SUBDOMAINS, "wb")
+        visited_pages_file = open(self.VISITED_PAGES, "wb")
+        pickle.dump(self.words_freq, word_freq_file)
+        pickle.dump(self.trap_urls, trap_urls_file)
+        pickle.dump(self.subdomains, subdomains_file)
+        pickle.dump(self.visited_pages, visited_pages_file)
+        
 
     def load_frontier(self):
         """
@@ -81,6 +110,13 @@ class Frontier:
                 self.fetched = pickle.load(open(self.FETCHED_FILE_NAME, "rb"))
                 logger.info("Loaded previous frontier state into memory. Fetched: %s, Queue size: %s", self.fetched,
                             len(self.urls_queue))
+                
+                # Load analytics
+                self.words_freq = pickle.load(open(self.WORDS_FREQ, "rb"))
+                self.trap_urls = pickle.load(open(self.TRAP_URLS, "rb"))
+                self.subdomains = pickle.load(open(self.SUBDOMAINS, "rb"))
+                self.visited_pages = pickle.load(open(self.VISITED_PAGES, "rb"))
+                
             except:
                 pass
         else:

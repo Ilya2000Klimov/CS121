@@ -5,6 +5,7 @@ from urllib.parse import urldefrag, urljoin
 import urllib.request
 from urllib.error import HTTPError, URLError
 from bs4 import BeautifulSoup
+import pickle
 
 logger = logging.getLogger(__name__)
 
@@ -21,26 +22,9 @@ class Crawler:
         self.corpus = corpus
         # Initialize the Crawler with a boolean to check if the URL is a trap
         self.is_trap = False
-        # Initialize the Crawler with a list of urls that are traps
-        self.trap_urls = []
-        # Initialise a list of comon stop words to skip for the analitics of the website content
-        self.stop_words = ["a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are",
-                            "aren't", "as", "at", "be", "because", "been", "before", "being", "below", "between",
-                            "both", "but", "by", "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does",
-                            "doesn't", "doing", "don't", "down", "during", "each", "few", "for", "from", "further",
-                            "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he", "he'd", "he'll", "he's",
-                            "her", "here", "here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i",
-                            "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself",
-                            "let's", "me", "more", "most", "mustn't", "my", "myself", "no", "nor", "not", "of", "off",
-                            "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over",
-                            "own", "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so",
-                            "some", "such", "than", "that", "that's", "the", "their", "theirs", "them", "themselves",
-                            "then", "there", "there's", "these", "they", "they'd", "they'll", "they're", "they've",
-                            "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't",
-                            "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when",
-                            "when's", "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's",
-                            "with", "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your",
-                            "yours", "yourself", "yourselves"]
+        # Initialise a dictionary of comon stop words to skip for the analitics of the website content from the pkl file
+        with open('stop_words_dict.pkl', 'rb') as file:
+            self.stopwords = pickle.load(file)
 
 
 # add the words in the coment above into a dictionary to check if the word is a stop word
@@ -54,12 +38,20 @@ class Crawler:
         """
         while self.frontier.has_next_url():
             url = self.frontier.get_next_url()
+            if url not in self.frontier.visited_pages:
+                self.frontier.visited_pages[url] = {
+                    'word_count': 0,
+                    'total_valid_out_links': 0,
+                    'valid_out_links': [],
+                }
             logger.info("Fetching URL %s ... Fetched: %s, Queue size: %s", url, self.frontier.fetched, len(self.frontier))
             url_data = self.corpus.fetch_url(url)
 
             for next_link in self.extract_next_links(url_data):
                 if self.is_valid(next_link):
                     if self.corpus.get_file_name(next_link) is not None:
+                        self.frontier.visited_pages[url]['total_valid_out_links'] += 1
+                        self.frontier.visited_pages[url]['valid_out_links'].append(next_link)
                         self.frontier.add_url(next_link)
 
     def extract_next_links(self, url_data):
@@ -103,10 +95,21 @@ or content-type wasn't provided
                 elif not parsed_href.scheme:
                     parsed_href = parsed_href._replace(scheme=urlparse(url).scheme)
                     href = parsed_href.geturl()
-                
-                get_url_after_redirect
 
                 outputLinks.append(href)  # Add the absolute URL to the list
+            
+            # Extract the text from the HTML content
+            text = soup.get_text()
+            text = re.sub(r'\s+', ' ', text)
+            text = re.sub(r'\W', ' ', text)
+            text = text.lower()
+            text = text.split()
+            #Count the words in the text
+            self.frontier.visited_pages[url]['word_count'] = len(text)
+            for word in text:
+                if word not in self.stopwords:
+                    self.frontier.words_freq[word] = self.frontier.words_freq.get(word, 0) + 1
+            
 
 
         return outputLinks  # Return the list of unique URLs, but first removes duplicates
@@ -125,8 +128,10 @@ or content-type wasn't provided
         way.(DO NOT HARD CODE URLS YOU THINK ARE TRAPS, ie regex urls, YOU SHOULD USE LOGIC TO FILTER THEM
         OUT)
         """
-        #Respect robot.txt
-        #find the robots.txt file
+        #Use fetch corpus.fetch_url(url) to get try to get robots.txt file and check if the url is allowed to be crawled
+        robots = self.corpus.fetch_url(urlparse(url).scheme + "://" + urlparse(url).netloc + "/robots.txt"
+        if http_code != 404:
+            print(robots)
         
         
         #Check for crawler traps
