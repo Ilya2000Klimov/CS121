@@ -3,7 +3,6 @@ import os
 from collections import deque
 import pickle
 from urllib.parse import urlparse
-import pandas as pd
 
 
 logger = logging.getLogger(__name__)
@@ -91,23 +90,17 @@ class Frontier:
         pickle.dump(self.urls_set, url_set_file)
         pickle.dump(self.fetched, fetched_file)
         
-        # Save analytics into pandas dataframes
-        pd.DataFrame(self.words_freq).to_pickle(self.WORDS_FREQ)
-        pd.DataFrame(self.trap_urls).to_pickle(self.TRAP_URLS)
-        pd.DataFrame(self.subdomains).to_pickle(self.SUBDOMAINS)
-        pd.DataFrame(self.visited_pages).to_pickle(self.VISITED_PAGES)
-        pd.DataFrame(self.url_patterns).to_pickle(self.URL_PATTERNS)
-        
-        # word_freq_file = open(self.WORDS_FREQ, "wb")
-        # trap_urls_file = open(self.TRAP_URLS, "wb")
-        # subdomains_file = open(self.SUBDOMAINS, "wb")
-        # visited_pages_file = open(self.VISITED_PAGES, "wb")
-        # url_patterns_file = open(self.URL_PATTERNS, "wb")
-        # pickle.dump(self.words_freq, word_freq_file)
-        # pickle.dump(self.trap_urls, trap_urls_file)
-        # pickle.dump(self.subdomains, subdomains_file)
-        # pickle.dump(self.visited_pages, visited_pages_file)
-        # pickle.dump(self.url_patterns, url_patterns_file)
+        # Save analytics
+        word_freq_file = open(self.WORDS_FREQ, "wb")
+        trap_urls_file = open(self.TRAP_URLS, "wb")
+        subdomains_file = open(self.SUBDOMAINS, "wb")
+        visited_pages_file = open(self.VISITED_PAGES, "wb")
+        url_patterns_file = open(self.URL_PATTERNS, "wb")
+        pickle.dump(self.words_freq, word_freq_file)
+        pickle.dump(self.trap_urls, trap_urls_file)
+        pickle.dump(self.subdomains, subdomains_file)
+        pickle.dump(self.visited_pages, visited_pages_file)
+        pickle.dump(self.url_patterns, url_patterns_file)
         
 
     def load_frontier(self):
@@ -125,19 +118,12 @@ class Frontier:
                 logger.info("Loaded previous frontier state into memory. Fetched: %s, Queue size: %s", self.fetched,
                             len(self.urls_queue))
                 
-                # Load analytics from pandas dataframes
-                self.words_freq = pd.DataFrame(pickle.load(open(self.WORDS_FREQ, "rb")))
-                self.trap_urls = pd.DataFrame(pickle.load(open(self.TRAP_URLS, "rb")))
-                self.subdomains = pd.DataFrame(pickle.load(open(self.SUBDOMAINS, "rb")))
-                self.visited_pages = pd.DataFrame(pickle.load(open(self.VISITED_PAGES, "rb")))
-                self.url_patterns = pd.DataFrame(pickle.load(open(self.URL_PATTERNS, "rb")))
-
-
-                # self.words_freq = pickle.load(open(self.WORDS_FREQ, "rb"))
-                # self.trap_urls = pickle.load(open(self.TRAP_URLS, "rb"))
-                # self.subdomains = pickle.load(open(self.SUBDOMAINS, "rb"))
-                # self.visited_pages = pickle.load(open(self.VISITED_PAGES, "rb"))
-                # self.url_patterns = pickle.load(open(self.URL_PATTERNS, "rb"))
+                # Load analytics
+                self.words_freq = pickle.load(open(self.WORDS_FREQ, "rb"))
+                self.trap_urls = pickle.load(open(self.TRAP_URLS, "rb"))
+                self.subdomains = pickle.load(open(self.SUBDOMAINS, "rb"))
+                self.visited_pages = pickle.load(open(self.VISITED_PAGES, "rb"))
+                self.url_patterns = pickle.load(open(self.URL_PATTERNS, "rb"))
                 
             except:
                 pass
