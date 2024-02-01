@@ -28,6 +28,7 @@ class Frontier:
     TRAP_URLS = os.path.join(".", FRONTIER_DIR_NAME, "trap_urls.pkl")
     SUBDOMAINS = os.path.join(".", FRONTIER_DIR_NAME, "subdomains.pkl")
     VISITED_PAGES = os.path.join(".", FRONTIER_DIR_NAME, "visited_pages.pkl")
+    URL_PATTERNS = os.path.join(".", FRONTIER_DIR_NAME, "url_patterns.pkl")
     
 
 
@@ -40,6 +41,7 @@ class Frontier:
         self.trap_urls = {}
         self.subdomains = {}
         self.visited_pages = {}
+        self.url_patterns = {}
 
     def add_url(self, url):
         """
@@ -92,10 +94,12 @@ class Frontier:
         trap_urls_file = open(self.TRAP_URLS, "wb")
         subdomains_file = open(self.SUBDOMAINS, "wb")
         visited_pages_file = open(self.VISITED_PAGES, "wb")
+        url_patterns_file = open(self.URL_PATTERNS, "wb")
         pickle.dump(self.words_freq, word_freq_file)
         pickle.dump(self.trap_urls, trap_urls_file)
         pickle.dump(self.subdomains, subdomains_file)
         pickle.dump(self.visited_pages, visited_pages_file)
+        pickle.dump(self.url_patterns, url_patterns_file)
         
 
     def load_frontier(self):
@@ -118,6 +122,7 @@ class Frontier:
                 self.trap_urls = pickle.load(open(self.TRAP_URLS, "rb"))
                 self.subdomains = pickle.load(open(self.SUBDOMAINS, "rb"))
                 self.visited_pages = pickle.load(open(self.VISITED_PAGES, "rb"))
+                self.url_patterns = pickle.load(open(self.URL_PATTERNS, "rb"))
                 
             except:
                 pass

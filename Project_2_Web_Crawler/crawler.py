@@ -1,11 +1,12 @@
 import logging
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from urllib.parse import urldefrag, urljoin
 import urllib.request
 from urllib.error import HTTPError, URLError
 from bs4 import BeautifulSoup
 import pickle
+from collections import Counter
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,8 @@ or content-type wasn't provided
                     parsed_href = parsed_href._replace(scheme=urlparse(url).scheme)
                     href = parsed_href.geturl()
 
+                href = normalize_url(href)  # Normalize the URL
+
                 outputLinks.append(href)  # Add the absolute URL to the list
             
             # Extract the text from the HTML content
@@ -172,22 +175,44 @@ or content-type wasn't provided
         if len(url) > 2000:  # Check if the URL is too long
             self.is_trap = True
             trap_types.append('long_url')
-        
-        # Checking for repeating sub-directories implemented
-        # Split the path into segments
-        segments = parsed.path.split('/')
 
         # Check for repeating subdirectories
-        if re.search(r'(/[^/]+)/\1+', parsed.path):
+        matches = re.findall(r'(/[^/]+)', parsed.path)
+        counter = Counter(matches)
+        repeats = [key for key, value in counter.items() if value > 1]
+
+        if repeats:
             self.is_trap = True
             trap_types.append('repeating_subdirectories')
-            
+
+
+        # Split the path into segments
+        segments = parsed.path.split('/')    
+        # Check for a similar URL with a different number
+        for i, segment in enumerate(segments):
+            if segment.isdigit() and len(segment) >= 2:
+                # Create a URL pattern by replacing the numeric segment with a placeholder
+                url_pattern = '/'.join(segments[:i] + ['{}'] + segments[i+1:])
+
+                # If the URL pattern has been encountered before
+                if url_pattern in self.frontier.url_patterns:
+                    # If the number has not been encountered before
+                    if segment not in self.frontier.url_patterns[url_pattern]:
+                        self.is_trap = True
+                        trap_types.append('similar_url_different_number')
+                        break
+
+                # Add the number to the set of encountered numbers for the URL pattern
+                self.frontier.url_patterns.setdefault(url_pattern, set()).add(segment)
+
         # Checking for dynamic urls implemented query 
         # URLs with query parameters (containing a ? and/or a &) 
         # Session IDs, tracking parameters, calendar events
-        if re.search(r'[?&](sessionid|sid|phpsessid|jsessionid|st|v|m|vl|ti|z)=', url):
+        if re.search(r'[?&](utm\_source|sessionid|sid|phpsessid|jsessionid|st|v|m|vl|ti|z|version|id)=', url):
             self.is_trap = True
             trap_types.append('session_id')
+
+        
 
 
         # If the URL is a trap, add it to the list of traps
@@ -196,3 +221,12 @@ or content-type wasn't provided
             return False
         
         return True
+    
+
+def normalize_url(url):
+    # Parse URL and remove query string and fragment
+    parsed_url = urlparse(url)
+    normalized_url = parsed_url._replace(query="", fragment="").geturl()
+    # Standardize casing and remove trailing slash if present
+    normalized_url = normalized_url.lower().rstrip('/')
+    return normalized_url
