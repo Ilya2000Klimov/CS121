@@ -10,21 +10,26 @@ def analitics_analysis():
     # Load analitics from pkl files
     with open("frontier_state/url_patterns.pkl", "rb") as file:
         url_patterns = pickle.load(file)
-    with open("frontier_state/words_freq.pkl", "rb") as file:
+    with open("frontier_state/word_freq.pkl", "rb") as file:
         words_freq = pickle.load(file)
     with open("frontier_state/trap_urls.pkl", "rb") as file:
         trap_urls = pickle.load(file)
     with open("frontier_state/subdomains.pkl", "rb") as file:
         subdomains = pickle.load(file)
-    with open("frontier_state/word_freq.pkl", "rb") as file:
+    with open("frontier_state/visited_pages.pkl", "rb") as file:
         visited_pages = pickle.load(file)
 
         # Open the output file
         with open('analysis.txt', 'w') as f:
             # Write 50 most common words
             f.write("50 most common words:\n")
-            f.write(str(words_freq.most_common(50)))
-            f.write("\n\n")
+            # Sort words frequency
+            print(len(words_freq))
+            words_freq = dict(sorted(words_freq.items(), key=lambda item: item[1], reverse=True))
+            # Print 50 most common words
+            f.write(str(dict(Counter(words_freq).most_common(50))))
+
+            print(len(words_freq))
 
             # Write subdomains in descending order
             f.write("Subdomains in descending order:\n")
