@@ -2,6 +2,8 @@ import logging
 import re
 from urllib.parse import urlparse
 from urllib.parse import urldefrag, urljoin
+import urllib.request
+from urllib.error import HTTPError, URLError
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
@@ -13,8 +15,37 @@ class Crawler:
     """
 
     def __init__(self, frontier, corpus):
+        # Initialize the Crawler with a frontier
         self.frontier = frontier
+        # Initialize the Crawler with a corpus
         self.corpus = corpus
+        # Initialize the Crawler with a boolean to check if the URL is a trap
+        self.is_trap = False
+        # Initialize the Crawler with a list of urls that are traps
+        self.trap_urls = []
+        # Initialise a list of comon stop words to skip for the analitics of the website content
+        self.stop_words = ["a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are",
+                            "aren't", "as", "at", "be", "because", "been", "before", "being", "below", "between",
+                            "both", "but", "by", "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does",
+                            "doesn't", "doing", "don't", "down", "during", "each", "few", "for", "from", "further",
+                            "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he", "he'd", "he'll", "he's",
+                            "her", "here", "here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i",
+                            "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself",
+                            "let's", "me", "more", "most", "mustn't", "my", "myself", "no", "nor", "not", "of", "off",
+                            "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over",
+                            "own", "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so",
+                            "some", "such", "than", "that", "that's", "the", "their", "theirs", "them", "themselves",
+                            "then", "there", "there's", "these", "they", "they'd", "they'll", "they're", "they've",
+                            "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't",
+                            "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when",
+                            "when's", "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's",
+                            "with", "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your",
+                            "yours", "yourself", "yourselves"]
+
+
+# add the words in the coment above into a dictionary to check if the word is a stop word
+
+        
 
     def start_crawling(self):
         """
@@ -40,6 +71,16 @@ class Crawler:
         that have already been fetched. The frontier takes care of that.
 
         Suggested library: lxml
+        
+        url: the requested url to be downloaded
+        content: the content of the downloaded url in binary format. None if url does not exist in the corpus
+        size: the size of the downloaded content in bytes. 0 if url does not exist in the corpus
+        content_type: Content-Type from the response http headers. None if the url does not exist in the corpus
+or content-type wasn't provided
+        http_code: the response http status code. 404 if the url does not exist in the corpus
+        is_redirected: a boolean indicating if redirection has happened to get the final response
+        final_url: the final url after all of the redirections. None if there was no redirection.
+        
         """
         outputLinks = []  # Initialize empty list for URLs
 
@@ -62,17 +103,27 @@ class Crawler:
                 elif not parsed_href.scheme:
                     parsed_href = parsed_href._replace(scheme=urlparse(url).scheme)
                     href = parsed_href.geturl()
+                
+                get_url_after_redirect
 
                 outputLinks.append(href)  # Add the absolute URL to the list
 
 
-        return list(set(outputLinks))  # Return the list of unique URLs, but first removes duplicates
+        return outputLinks  # Return the list of unique URLs, but first removes duplicates
 
     def is_valid(self, url):
         """
         Function returns True or False based on whether the url has to be fetched or not. This is a great place to
         filter out crawler traps. Duplicated urls will be taken care of by frontier. You don't need to check for duplication
         in this method
+        
+        
+        Filter out crawler traps (e.g. the ICS calendar, dynamic URL’s, etc.), Additionally crawler traps include history based
+        trap detection where based on your practice runs you will determine if there are sites that you have crawled that
+        are traps, continuously repeating sub-directories and very long URLs. You will need to do some research online but
+        you will provide information on the type of trap detection you implemented and why you implemented it that
+        way.(DO NOT HARD CODE URLS YOU THINK ARE TRAPS, ie regex urls, YOU SHOULD USE LOGIC TO FILTER THEM
+        OUT)
         """
         #Respect robot.txt
         #find the robots.txt file
@@ -101,4 +152,3 @@ class Crawler:
         except TypeError:
             print("TypeError for ", parsed)
             return False
-
