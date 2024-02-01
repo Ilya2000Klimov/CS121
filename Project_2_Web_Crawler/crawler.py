@@ -178,11 +178,9 @@ or content-type wasn't provided
         segments = parsed.path.split('/')
 
         # Check for repeating subdirectories
-        for i in range(1, len(segments)):
-            if segments[i] == segments[i-1]:
-                self.is_trap = True
-                trap_types.append('repeating_subdirectories')
-                break
+        if re.search(r'(/[^/]+)/\1+', parsed.path):
+            self.is_trap = True
+            trap_types.append('repeating_subdirectories')
             
         # Checking for dynamic urls implemented query 
         # URLs with query parameters (containing a ? and/or a &) 
@@ -196,3 +194,5 @@ or content-type wasn't provided
         if self.is_trap:
             self.frontier.trap_urls[url] = trap_types
             return False
+        
+        return True
