@@ -128,32 +128,71 @@ or content-type wasn't provided
         way.(DO NOT HARD CODE URLS YOU THINK ARE TRAPS, ie regex urls, YOU SHOULD USE LOGIC TO FILTER THEM
         OUT)
         """
-        #Use fetch corpus.fetch_url(url) to get try to get robots.txt file and check if the url is allowed to be crawled
-        robots = self.corpus.fetch_url(urlparse(url).scheme + "://" + urlparse(url).netloc + "/robots.txt"
-        if http_code != 404:
-            print(robots)
+        # Initialize the Crawler with a boolean to check if the URL is a trap
+        self.is_trap = False
         
+        trap_types = []
         
-        #Check for crawler traps
-        #Check for valid content
-        #Check for valid size
-        #Check for valid content-type
-        #Check for valid http code
-        #Check for valid redirection
-
-        #print("url: ", url)
-
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
             return False
         try:
-            return ".ics.uci.edu" in parsed.hostname \
-                   and not re.match(".*\.(css|js|bmp|gif|jpe?g|ico" + "|png|tiff?|mid|mp2|mp3|mp4" \
-                                    + "|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf" \
-                                    + "|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1" \
-                                    + "|thmx|mso|arff|rtf|jar|csv" \
-                                    + "|rm|smil|wmv|swf|wma|zip|rar|gz|pdf)$", parsed.path.lower())
+            if ".ics.uci.edu" not in parsed.hostname \
+                or \
+                re.match(".*\.(css|js|bmp|gif|jpe?g|ico" + "|png|tiff?|mid|mp2|mp3|mp4" \
+                + "|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf" \
+                + "|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1" \
+                + "|thmx|mso|arff|rtf|jar|csv" \
+                + "|rm|smil|wmv|swf|wma|zip|rar|gz|pdf)$", parsed.path.lower()):
+                return False
+            
+            
+            # return ".ics.uci.edu" in parsed.hostname \
+            #        and not re.match(".*\.(css|js|bmp|gif|jpe?g|ico" + "|png|tiff?|mid|mp2|mp3|mp4" \
+            #                         + "|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf" \
+            #                         + "|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1" \
+            #                         + "|thmx|mso|arff|rtf|jar|csv" \
+            #                         + "|rm|smil|wmv|swf|wma|zip|rar|gz|pdf)$", parsed.path.lower())
 
         except TypeError:
             print("TypeError for ", parsed)
+            return False
+        
+        
+        #Use fetch corpus.fetch_url(url) to get try to get robots.txt file and check if the url is allowed to be crawled
+        
+        robots = self.corpus.fetch_url(urlparse(url).scheme + "://" + urlparse(url).netloc + "/robots.txt")
+        if robots['http_code'] != 404:
+            with open('robots.txt', 'w') as f:
+                f.write(str(robots)) #NO ROBOT FILE???
+        
+        
+        # History traps detection implemented
+        # Checking long urls implemented
+        if len(url) > 2000:  # Check if the URL is too long
+            self.is_trap = True
+            trap_types.append('long_url')
+        
+        # Checking for repeating sub-directories implemented
+        # Split the path into segments
+        segments = parsed.path.split('/')
+
+        # Check for repeating subdirectories
+        for i in range(1, len(segments)):
+            if segments[i] == segments[i-1]:
+                self.is_trap = True
+                trap_types.append('repeating_subdirectories')
+                break
+            
+        # Checking for dynamic urls implemented query 
+        # URLs with query parameters (containing a ? and/or a &) 
+        # Session IDs, tracking parameters, calendar events
+        if re.search(r'[?&](sessionid|sid|phpsessid|jsessionid|st|v|m|vl|ti|z)=', url):
+            self.is_trap = True
+            trap_types.append('session_id')
+
+
+        # If the URL is a trap, add it to the list of traps
+        if self.is_trap:
+            self.frontier.trap_urls[url] = trap_types
             return False

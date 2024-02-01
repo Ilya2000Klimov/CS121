@@ -37,7 +37,7 @@ class Frontier:
         self.fetched = 0
         #Added analitics, such as word frequency, and traps
         self.words_freq = {}
-        self.trap_urls = []
+        self.trap_urls = {}
         self.subdomains = {}
         self.visited_pages = {}
 
@@ -108,6 +108,8 @@ class Frontier:
                 self.urls_queue = pickle.load(open(self.URL_QUEUE_FILE_NAME, "rb"))
                 self.urls_set = pickle.load(open(self.URL_SET_FILE_NAME, "rb"))
                 self.fetched = pickle.load(open(self.FETCHED_FILE_NAME, "rb"))
+                print(self.fetched)
+                print(len(self.urls_queue))
                 logger.info("Loaded previous frontier state into memory. Fetched: %s, Queue size: %s", self.fetched,
                             len(self.urls_queue))
                 
