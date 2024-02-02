@@ -80,24 +80,40 @@ or content-type wasn't provided
         url = url_data['url']  # Extract the URL from url_data
         content = url_data['content']  # Extract the HTML content from url_data
         http_code = url_data['http_code']  # Extract the HTTP status code
+        content_type = url_data.get('content_type', '')  # The Content-Type of the response
+        is_redirected = url_data.get('is_redirected', False)  # Flag for redirection
+        final_url = url_data.get('final_url', url)  # The final URL after redirection
+
+        # Initialize soup as None to handle the case when it's not set
+        soup = None
 
         if http_code == 200 and content:  # Check if the HTTP status code is OK and content is not empty
-            soup = BeautifulSoup(content, "html.parser")  # Parse the HTML content
+            # Check if content_type is not None and contains 'html'
+            if content_type and 'html' in content_type:
+                # Parse the content using BeautifulSoup
+                soup = BeautifulSoup(content, "html.parser")
 
-            for link_tag in soup.find_all('a', href=True):  # Find all <a> tags with an href attribute
+                # Determine the base URL for resolving relative URLs
+                base_url = final_url if is_redirected else url
+
+
+            # Proceed only if soup has been successfully created
+        if soup:
+            for link_tag in soup.find_all('a', href=True):
                 href = link_tag.get('href')  # Extract the href attribute
-                href, _ = urldefrag(href)  # Remove fragment from URL
+                href, _ = urldefrag(href)  # Remove fragment from URL if any
 
-                parsed_href = urlparse(href)  # Parse the href
-
-                # Convert relative URLs to absolute URLs
+                # Parse the href to check if it's relative or absolute
+                parsed_href = urlparse(href)
+                # If href is relative, make it absolute
                 if not parsed_href.netloc:
-                    href = urljoin(url, parsed_href.geturl())
+                    href = urljoin(base_url, parsed_href.geturl())
+                # If href lacks a scheme, use the scheme from the base URL
                 elif not parsed_href.scheme:
-                    parsed_href = parsed_href._replace(scheme=urlparse(url).scheme)
+                    parsed_href = parsed_href._replace(scheme=urlparse(base_url).scheme)
                     href = parsed_href.geturl()
 
-                href = normalize_url(href)  # Normalize the URL
+                # Add the absolute URL to the set of output links
 
                 outputLinks.append(href)  # Add the absolute URL to the list
             
@@ -164,15 +180,15 @@ or content-type wasn't provided
         
         #Use fetch corpus.fetch_url(url) to get try to get robots.txt file and check if the url is allowed to be crawled
         
-        robots = self.corpus.fetch_url(urlparse(url).scheme + "://" + urlparse(url).netloc + "/robots.txt")
-        if robots['http_code'] != 404:
-            with open('robots.txt', 'w') as f:
-                f.write(str(robots)) #NO ROBOT FILE???
+        # robots = self.corpus.fetch_url(urlparse(url).scheme + "://" + urlparse(url).netloc + "/robots.txt")
+        # if robots['http_code'] != 404:
+        #     with open('robots.txt', 'w') as f:
+        #         f.write(str(robots)) #NO ROBOT FILE???
         
         
         # History traps detection implemented
         # Checking long urls implemented
-        if len(url) > 2000:  # Check if the URL is too long
+        if len(url) > 500:  # Check if the URL is too long
             self.is_trap = True
             trap_types.append('long_url')
 
@@ -219,7 +235,7 @@ or content-type wasn't provided
         # Checking for dynamic urls implemented query 
         # URLs with query parameters (containing a ? and/or a &) 
         # Session IDs
-        if re.search(r'[?&](utm\_source|sessionid|sid|phpsessid|jsessionid|st|v|m|vl|ti|z|version|id)=', url):
+        if re.search(r'[?&%](utm\_source|sessionid|sid|phpsessid|jsessionid|st|v|m|vl|ti|z|version|id)=', url):
             self.is_trap = True
             trap_types.append('session_id')
 
