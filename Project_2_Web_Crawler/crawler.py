@@ -202,40 +202,44 @@ or content-type wasn't provided
             trap_types.append('repeating_subdirectories')
 
 
-        # Split the path into segments
-        #segments = parsed.path.split('/')
-        segments = re.split(r'[/.-_]', parsed.path)  
-        # Check for a similar URL with a different number
+        # # Split the path into segments
+        # #segments = parsed.path.split('/')
+        # segments = re.split(r'[/.-_]', parsed.path)  
+        # # Check for a similar URL with a different number
         
-        # Create a copy of segments for manipulation
-        segments_copy = segments.copy()
-        numeric_segments = set()
+        # # Create a copy of segments for manipulation
+        # segments_copy = segments.copy()
+        # numeric_segments = set()
 
-        # Replace all numeric segments of size 2 or more with a placeholder
-        for i, segment in enumerate(segments_copy):
-            if segment.isdigit() and len(segment) >= 2:
-                segments_copy[i] = '{}'
-                numeric_segments.add(segment)
+        # # Replace all numeric segments of size 2 or more with a placeholder
+        # for i, segment in enumerate(segments_copy):
+        #     if segment.isdigit() and len(segment) >= 2:
+        #         segments_copy[i] = '{}'
+        #         numeric_segments.add(segment)
 
-        # Create a URL pattern from the modified segments
-        url_pattern = '/'.join(segments_copy)
+        # # Create a URL pattern from the modified segments
+        # url_pattern = '/'.join(segments_copy)
 
-        # If the URL pattern has been encountered before
-        if url_pattern in self.frontier.url_patterns:
+        # # If the URL pattern has been encountered before
+        # if url_pattern in self.frontier.url_patterns:
+        #     self.is_trap = True
+        #     trap_types.append('similar_url_different_number')
+        # elif numeric_segments:
+        #     #Join the numeric segments
+        #     numeric_segment = '/'.join(numeric_segments)
+        #     # Add the original URL pattern to the set of encountered patterns
+        #     if url_pattern not in self.frontier.url_patterns:
+        #         self.frontier.url_patterns[url_pattern] = []
+        #     self.frontier.url_patterns[url_pattern].append(numeric_segment)
+        
+        if (check_similar_url_different_number(url, self.frontier)):
             self.is_trap = True
             trap_types.append('similar_url_different_number')
-        elif numeric_segments:
-            #Join the numeric segments
-            numeric_segment = '/'.join(numeric_segments)
-            # Add the original URL pattern to the set of encountered patterns
-            if url_pattern not in self.frontier.url_patterns:
-                self.frontier.url_patterns[url_pattern] = []
-            self.frontier.url_patterns[url_pattern].append(numeric_segment)
 
         # Checking for dynamic urls implemented query 
         # URLs with query parameters (containing a ? and/or a &) 
         # Session IDs
-        if re.search(r'[?&%](utm\_source|sessionid|sid|phpsessid|jsessionid|st|v|m|vl|ti|z|version|id)=', url):
+        if re.search(r'[?&%](utm\_source|sessionid|sid|phpsessid|jsessionid|st|v|m|vl|ti|z|version)=', url):
             self.is_trap = True
             trap_types.append('session_id')
 
@@ -257,3 +261,39 @@ def normalize_url(url):
     # Standardize casing and remove trailing slash if present
     normalized_url = normalized_url.lower().rstrip('/')
     return normalized_url
+
+
+def check_similar_url_different_number(url, frontier):
+    # Parse the URL
+    parsed = urlparse(url)
+
+    # Split the path into segments
+    segments = re.split(r'[/.-_]', parsed.path)
+
+    # Create a copy of segments for manipulation
+    segments_copy = segments.copy()
+    numeric_segments = set()
+
+    # Replace all numeric segments of size 2 or more with a placeholder
+    for i, segment in enumerate(segments_copy):
+        if segment.isdigit() and len(segment) >= 2:
+            segments_copy[i] = '{}'
+            numeric_segments.add(segment)
+
+    # Create a URL pattern from the modified segments
+    url_pattern = '/'.join(segments_copy)
+
+    is_trap = False
+
+    # If the URL pattern has been encountered before
+    if url_pattern in frontier.url_patterns:
+        is_trap = True
+    elif numeric_segments:
+        # Join the numeric segments
+        numeric_segment = '/'.join(numeric_segments)
+        # Add the original URL pattern to the set of encountered patterns
+        if url_pattern not in frontier.url_patterns:
+            frontier.url_patterns[url_pattern] = []
+        frontier.url_patterns[url_pattern].append(numeric_segment)
+
+    return is_trap
