@@ -69,6 +69,12 @@ def analytics_analysis():
         for url, trap_types in sorted_trap_urls:
             f.write(f"{url}: {', '.join(trap_types)}\n")
 
+    with open('visited_pages.txt', 'w') as f:
+        # Write all of the visited pages sorted alphabetically
+        f.write("\nAll visited pages sorted alphabetically:\n")
+        for page in sorted(visited_pages.keys()):
+            f.write(f"{page}\n")
+
 def get_page_with_most_outlinks(visited_pages):
     max_outlinks = 0
     page_with_most_outlinks = None

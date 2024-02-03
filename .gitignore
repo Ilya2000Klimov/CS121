@@ -1,5 +1,4 @@
 # Ignore all files in the web_dump folder
 Project_2_Web_Crawler/spacetime_crawler_data/*
-Project_2_Web_Crawler/frontier_state/*
 Project_2_Web_Crawler/__pycache__/*
 Project_2_Web_Crawler/spacetime_crawler_data.zip
