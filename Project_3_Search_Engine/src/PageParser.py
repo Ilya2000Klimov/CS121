@@ -3,6 +3,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer, WordNetLemmatizer
 from collections import Counter
+import re
 
 nltk.download('stopwords')
 nltk.download('wordnet')
@@ -10,7 +11,8 @@ nltk.download('wordnet')
 
 class Parser:
     def __init__(self):
-        pass
+        self.stemmer = PorterStemmer()
+        self.lemmatizer = WordNetLemmatizer()
 
 
     def parse_document(self, file_path):
@@ -23,7 +25,7 @@ class Parser:
         
         # Extract text and apply tokenization, stemming/lemmatization, and stopword removal
         tokens = []
-        tag_importance = {'title': 10, 'h1': 6, 'h2': 5, 'h3': 2, 'p': 2, 'b': 3, 'strong': 3}
+        tag_importance = {'title': 10, 'h1': 6, 'h2': 5, 'h3': 3, 'p': 2, 'b': 3, 'strong': 3}
         
         for tag, weight in tag_importance.items():
             for element in soup.find_all(tag):
@@ -32,32 +34,37 @@ class Parser:
                 tokens.extend(processed_tokens * weight)  # Duplicate tokens based on tag importance
 
         # Calculate token value from frequency and tag importance
-        token_frequency = Counter(tokens)
+        token_frequency = Counter(tokens)  # Divide by 2 to avoid overvaluing the importance of tags
 
         return list(token_frequency.items())
 
     # Function to process tokens
-    def process_token(token):
+    def process_token(self, token):
         token = token.lower()  # Convert to lowercase
-        # Apply stemming and lemmatization
-        stemmer = PorterStemmer()
-        lemmatizer = WordNetLemmatizer()
-        token = stemmer.stem(token)  # Apply stemming
-        token = lemmatizer.lemmatize(token)  # Apply lemmatization
+        token = self.stemmer.stem(token)  # Apply stemming
+        token = self.lemmatizer.lemmatize(token)  # Apply lemmatization
         return token
 
     # Tokenization function, if a word is separated by dots or slashes return the word as separate word and as a single word, such as "e-mail" returns as "e", "mail" and "e-mail"
-    def tokenize(text):
+    def tokenize(self, text):
         words = text.split()
         tokens = []
         for word in words:
-            if '.' in word:
-                tokens.extend(word.split('.'))
-            elif '/' in word:
-                tokens.extend(word.split('/'))
-            elif '-' in word:
-                tokens.extend(word.split('-'))
-            elif '_' in word:
-                tokens.extend(word.split('_'))
-            tokens.append(word)
+            numberOfDelimiters = 0
+            stripped_word = re.sub(r'^\W+|\W+$', '', word.lower())
+            if '.' in stripped_word:
+                tokens.extend(stripped_word.split('.'))
+                numberOfDelimiters += 1
+            if '/' in stripped_word:
+                tokens.extend(stripped_word.split('/'))
+                numberOfDelimiters += 1
+            if '-' in stripped_word:
+                tokens.extend(stripped_word.split('-'))
+                numberOfDelimiters += 1
+            if '_' in stripped_word:
+                tokens.extend(stripped_word.split('_'))
+                numberOfDelimiters += 1
+            if numberOfDelimiters > 1:
+                tokens.extend(re.findall(r'\b\w+\b', stripped_word))
+            tokens.append(stripped_word)
         return tokens

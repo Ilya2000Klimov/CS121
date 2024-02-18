@@ -3,10 +3,17 @@ from collections import Counter
 from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 
-import sys
-sys.path.append('Project_3_Search_Engine.src')
-from PageParser import Parser
+import pyprojroot
 
+root = pyprojroot.here()
+root = root/'Project_3_Search_Engine'
+src = root/'src'
+Test = root/'test'
+
+import sys
+sys.path.append(str(root))
+
+from src.PageParser import Parser
 
 class TestParser(unittest.TestCase):
     def setUp(self):
@@ -19,7 +26,7 @@ class TestParser(unittest.TestCase):
 
     def test_tokenize(self):
         result = self.parser.tokenize(self.test_text)
-        expected_result = ['Test', 'paragraph', '.', 'Some', 'random', 'words', '.', 'Test', 'words', 'with', 'different', 'separators', 'Test-words/with.different_separators']
+        expected_result = ['test', 'paragraph', 'some', 'random', 'words', 'test-words/with', 'different_separators', 'test-words', 'with.different_separators', 'test', 'words/with.different_separators', 'test-words/with.different', 'separators', 'test', 'words', 'with', 'different_separators', 'test-words/with.different_separators']
         self.assertEqual(result, expected_result)
 
     def test_parse_document(self):
@@ -43,17 +50,15 @@ class TestParser(unittest.TestCase):
 
         result = self.parser.parse_document(test_file_path)
         expected_result = [
-            ('Test', 10+6+5+2+3+3), 
-            ('Title', 10), 
-            ('Header', 6+5), 
-            ('1', 6), 
-            ('2', 5), 
+            ('test', 10+6+5+2+3+3), 
+            ('titl', 10), 
+            ('header', 6+5), 
             ('paragraph', 2), 
-            ('Some', 2), 
             ('random', 2), 
-            ('words', 2), 
+            ('word', 2), 
             ('bold', 3), 
-            ('text', 3+3)
+            ('text', 3+3),
+            ('strong', 3),
         ]
         self.assertEqual(Counter(dict(result)), Counter(dict(expected_result)))
 

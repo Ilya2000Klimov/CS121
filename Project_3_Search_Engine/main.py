@@ -2,7 +2,17 @@ import unittest
 from collections import Counter
 from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
-from Project_3_Search_Engine import Parser
+import pyprojroot
+
+root = pyprojroot.here()
+root = root/'Project_3_Search_Engine'
+src = root/'src'
+Test = root/'test'
+
+import sys
+sys.path.append(str(root))
+
+from src.PageParser import Parser
 
 
 class TestParser(unittest.TestCase):
