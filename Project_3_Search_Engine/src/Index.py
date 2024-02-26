@@ -1,4 +1,4 @@
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 from bs4 import BeautifulSoup
 import os
 import json
@@ -131,18 +131,17 @@ class InverseIndex:
                 # Calculate the TF-IDF score for the term in the document
                 tfidf = (1 + math.log(doc['tf'])) * term_entry['idf']
                 # Create an update dictionary for the document
-                update = {
-                    "term": term_entry['term'],
-                    "documents.document_id": doc['document_id']
-                }
-                # Add the TF-IDF score to the update dictionary
-                update["$set"] = {"documents.$.tfidf": tfidf}
+                update = UpdateOne(
+                {"term": term_entry['term'], "documents.document_id": doc['document_id']},
+                {"$set": {"documents.$.tfidf": tfidf}}
+                )
                 # Append the update dictionary to the list of updates
                 updates.append(update)
             # Update all documents for the term at once
-            self.collection.update_many({"term": term_entry['term']}, updates)
-            
-            self.collection.update_one
+            if updates:  # Ensure there are operations to execute
+                self.collection.bulk_write(updates)
+        if updates:  # Ensure there are operations to execute
+                self.collection.bulk_write(updates)
         
         # for term_entry in self.collection.find():
         #     # Iterate over each document in the term's document list
