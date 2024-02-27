@@ -11,7 +11,8 @@ sys.path.append(str(root))
 from src.Index import InverseIndex
 from urllib.parse import urlparse
 
-Index = InverseIndex(directory_path=root/'webpages/test_webpages')
+Index = InverseIndex(directory_path=root/'webpages/WEBPAGES_RAW')
+# Index = InverseIndex(directory_path=root/'webpages/test_webpages')
 Index.build_index()
 
 # # Open /home/ilya2k/Documents/CS121/Project_3_Search_Engine/webpages/WEBPAGES_RAW/bookkeeping.json and output all url endings
