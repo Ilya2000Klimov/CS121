@@ -1,23 +1,35 @@
 from bs4 import BeautifulSoup
+from bs4 import MarkupResemblesLocatorWarning
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer, WordNetLemmatizer
 from collections import Counter
 import re
+import json
+import os
+import warnings
+import sys
 
 nltk.download('stopwords')
 nltk.download('wordnet')
 
 
+
+def handle_warning(message, category, filename, lineno, file=None, line=None):
+    # Prinrt the warning to the alternate stream
+    print(f"Warning: {message}", file=sys.stderr)
+        
 class PageParser:
-    def __init__(self):
+    def __init__(self, directory_path):
         self.stemmer = PorterStemmer()
         self.lemmatizer = WordNetLemmatizer()
-
-
+        self.directory_path = directory_path
+        with open(os.path.join(directory_path, "bookkeeping.json"), 'r', encoding='utf-8') as file:
+            self.data = json.load(file)
+    
+    
     def parse_document(self, file_path):
         # Open the file and parse it with BeautifulSoup
-        
         with open(file_path, 'r', encoding='utf-8') as file:
             file_content = file.read()
         
@@ -27,6 +39,7 @@ class PageParser:
         else:
             soup = BeautifulSoup(file_content, 'xml')
             is_html = False
+
 
             
         # Initialize stopwords set

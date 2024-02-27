@@ -43,7 +43,7 @@ class InverseIndex:
 
     def index_document(self, file_path, doc_id):
         # Parse the document, calculate metrics, and update the index for each term in the document
-        parser = PageParser()
+        parser = PageParser(self.directory_path)
         documant_data = parser.parse_document(file_path)
         doc_length = documant_data['doc_size']
         
@@ -64,8 +64,10 @@ class InverseIndex:
             # Iterate over each file in the directory
             if dir.is_dir():
                 parent_directory_path = Path(directory_path).parent
+                # print(f"Indexing files in {os.path.relpath(dir, parent_directory_path)}")
                 for file in tqdm(dir.iterdir(), desc=f"Indexing files in {os.path.relpath(dir, parent_directory_path)}"):
                     file_path = file
+                    # print(f"[{file_path.name}]", end="")
                     doc_id = os.path.relpath(file_path, directory_path)
                     self.index_document(file_path, doc_id)
                     self.total_docs += 1
