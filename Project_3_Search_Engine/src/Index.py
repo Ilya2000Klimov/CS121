@@ -13,6 +13,7 @@ sys.path.append(str(root))
 
 from src.PageParser import PageParser
 from tqdm import tqdm
+from pathlib import Path
 
 class InverseIndex:
     def __init__(self, db_uri='localhost', db_port=27017, db_name='searchEngine', collection_name='Index', directory_path=root/'webpages/WEBPAGES_RAW'):
@@ -57,18 +58,28 @@ class InverseIndex:
     
     # Implement the logic to build the index for all documents in a directory
     def build_index(self):
-        directory_path = self.directory_path
-        for root, dirs, files in os.walk(directory_path):
-            # Print directory path
-            print(f"Indexing files in {root}[", end="")
-            for file in files:
-                # Print file name
-                print(f"| {file} ", end="")
-                file_path = os.path.join(root, file)
-                doc_id = os.path.relpath(file_path, directory_path)  # Use relative path as a unique identifier
-                self.index_document(file_path, doc_id)
-                self.total_docs += 1
-            print("]")
+        directory_path = Path(self.directory_path)
+        #for each subdirectory in the passed in directory directory in the 
+        for dir in directory_path.iterdir(): #, desc=f"Indexing documents"):
+            # Iterate over each file in the directory
+            if dir.is_dir():
+                parent_directory_path = Path(directory_path).parent
+                for file in tqdm(dir.iterdir(), desc=f"Indexing files in {os.path.relpath(dir, parent_directory_path)}"):
+                    file_path = file
+                    doc_id = os.path.relpath(file_path, directory_path)
+                    self.index_document(file_path, doc_id)
+                    self.total_docs += 1
+        
+        # directory_path = Path(self.directory_path)
+        # for file_path in directory_path.rglob('*/*'): #, desc=f"Indexing documents"):
+        #     print(f"Indexing file: {file_path}") 
+        #     # print(f"[Indexing files in {dir}]", end="")
+        #     # Iterate over each file in the directory
+        #     for file in file_path.parent.iterdir(): #, desc=f"Indexing {dir}"):
+        #         file_path = file
+        #         doc_id = os.path.relpath(file_path, directory_path)  # Use relative path as a unique identifier
+        #         self.index_document(file_path, doc_id)
+        #         self.total_docs += 1
         self.calculate_TFIDF()
         self.save_index_to_file()
     
@@ -109,7 +120,7 @@ class InverseIndex:
                 self.collection.insert_one(document)
         
 
-    def calculate_TFIDF(self):
+    def calculate_TFIDF(self, batch_size=500):
         # Calculate the TF-IDF score for each term-document pair in the collection
         
         #Print the number of terma in the collection
@@ -122,32 +133,50 @@ class InverseIndex:
             # Update the term's IDF in the collection
             self.collection.update_one({"term": term_entry['term']}, {"$set": {"idf": idf}})
         
-        # For each term in the collection
-        for term_entry in tqdm(self.collection.find(), desc="Calculating TF-IDF scores"):
-            # Create a list to store the updates for the term
-            updates = []
-            # For each document in the term's document list
-            for doc in term_entry['documents']:
-                # Calculate the TF-IDF score for the term in the document
-                tfidf = (1 + math.log(doc['tf'])) * term_entry['idf']
-                # Create an update dictionary for the document
-                update = UpdateOne(
+        
+        
+        # Determine the total number of terms to process
+        total_terms = self.collection.count_documents({})
+        
+        # Calculate the number of batches needed
+        num_batches = (total_terms + batch_size - 1) // batch_size
+        
+        
+        for batch_num in range(num_batches):
+            # Calculate the skip and limit for the current batch
+            skip = batch_num * batch_size
+            limit = batch_size
+            
+            # Fetch the batch of term entries
+            batch_term_entries = self.collection.find({}).skip(skip).limit(limit)
+            
+            for term_entry in tqdm(batch_term_entries, desc=f"Processing batch {batch_num + 1}/{num_batches}"):
+                updates = []  # List to store the updates for the current batch
+                
+                for doc in term_entry['documents']:
+                    # Calculate the TF-IDF score
+                    tfidf = (1 + math.log(doc['tf'])) * term_entry['idf']
+                    
+                    # Prepare the update operation
+                    update = UpdateOne(
+                        {"term": term_entry['term'], "documents.document_id": doc['document_id']},
+                        {"$set": {"documents.$.tfidf": tfidf}}
+                    )
+                    updates.append(update)
+                
+            # Execute the bulk update for the current batch
+            if updates:
+                self.collection.bulk_write(updates)
+                # empty updates list
+                updates = []
+    
+    def process_term_entry(self, term_entry):
+        updates = []
+        for doc in term_entry['documents']:
+            tfidf = (1 + math.log(doc['tf'])) * term_entry['idf']
+            update = UpdateOne(
                 {"term": term_entry['term'], "documents.document_id": doc['document_id']},
                 {"$set": {"documents.$.tfidf": tfidf}}
-                )
-                # Append the update dictionary to the list of updates
-                updates.append(update)
-            # Update all documents for the term at once
-            if updates:  # Ensure there are operations to execute
-                self.collection.bulk_write(updates)
-        if updates:  # Ensure there are operations to execute
-                self.collection.bulk_write(updates)
-        
-        # for term_entry in self.collection.find():
-        #     # Iterate over each document in the term's document list
-        #     for doc in term_entry['documents']:
-        #         # Calculate the TF-IDF score for the term in the document
-        #         tfidf = doc['tf'] * term_entry['idf']
-        #         # Update the document's TF-IDF score in the collection
-        #         self.collection.update_one({"term": term_entry['term'], "documents.document_id": doc['document_id']}, {"$set": {"documents.$.tfidf": tfidf}})
-    # Add more methods as needed, e.g., for querying the index, handling updates, etc.
+            )
+            updates.append(update)
+        return updates

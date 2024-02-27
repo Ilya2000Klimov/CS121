@@ -10,7 +10,7 @@ sys.path.append(str(root))
 
 from src.Index import InverseIndex
 
-Index = InverseIndex(directory_path=root/'webpages/test_webpages')
+Index = InverseIndex(directory_path=root/'webpages/WEBPAGES_RAW')
 Index.build_index()
 
 if __name__ == '__main__':
