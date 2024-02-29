@@ -27,31 +27,36 @@ class InverseIndex:
         # Calculate Term Frequency (TF)
         return term_freq / doc_length
 
-    def update_index(self, term, doc_id, tf):
-        # Check if the term already exists in the collection
-        term_entry = self.collection.find_one({"term": term})
 
-        # Document reference structure
-        doc_ref = {"document_id": doc_id, "tf": tf, "tfidf": 0}
-
-        if term_entry:
-            # If the term exists, update it with the new document reference
-            self.collection.update_one({"term": term}, {"$push": {"documents": doc_ref}})
-        else:
-            # If the term doesn't exist, create a new entry for it
-            self.collection.insert_one({"term": term, "documents": [doc_ref]})
 
     def index_document(self, file_path, doc_id):
         # Parse the document, calculate metrics, and update the index for each term in the document
         parser = PageParser(self.directory_path)
-        documant_data = parser.parse_document(file_path)
-        doc_length = documant_data['doc_size']
+        document_data = parser.parse_document(file_path)
+        doc_length = document_data['doc_size']
         
-        # for each term in the document_data['token_frequency'] calculate the term frequency and update the index
-        for term, term_freq in documant_data['token_frequency']:
-            #print(f"Indexing term: {term} in document: {doc_id},  document length: {doc_length}")
+        # Prepare a list for bulk operations
+        bulk_operations = []
+
+        for term, term_freq in document_data['token_frequency'].items():
             tf = self.calculate_tf(term_freq, doc_length)
-            self.update_index(term, doc_id, tf)
+            doc_ref = {"document_id": doc_id, "tf": tf, "tfidf": 0}
+
+            # Prepare the update operation
+            update_operation = UpdateOne(
+                {"term": term},
+                {
+                    "$push": {"documents": doc_ref}
+                },
+                upsert=True  # This ensures that if the term does not exist, it will be inserted
+            )
+
+            # Add the operation to the list
+            bulk_operations.append(update_operation)
+
+        # Execute all the operations in bulk
+        if bulk_operations:
+            self.collection.bulk_write(bulk_operations)
         
         
 
