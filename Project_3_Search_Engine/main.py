@@ -1,4 +1,5 @@
 import pyprojroot
+from pymongo import MongoClient
 
 root = pyprojroot.here()
 root = root/'Project_3_Search_Engine'
@@ -11,9 +12,49 @@ sys.path.append(str(root))
 from src.Index import InverseIndex
 from urllib.parse import urlparse
 
+
 Index = InverseIndex(directory_path=root/'webpages/WEBPAGES_RAW')
-# Index = InverseIndex(directory_path=root/'webpages/test_webpages')
+# Index = InverseIndex(directory_path=root/'webpages/tiny_test')
+# Index.calculate_TFIDF()
+# Index.save_index_to_file()
+
 Index.build_index()
+
+# connect to the mongodb
+client = MongoClient('localhost', 27017)
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+
+db = client['searchEngine']
+collection = db['Index']
+
+stemmer = PorterStemmer()
+lemmatizer = WordNetLemmatizer()
+
+#Find the 20 documents with the highest TFIDF score for term irvine
+term = 'irvine'
+term = lemmatizer.lemmatize(stemmer.stem(term.lower()))
+
+print(term)
+
+# Find the irvine term in the index
+pipeline = [
+    {"$match": {"term": term}},  # Replace "yourTerm" with the actual term you're interested in
+    {"$unwind": "$documents"},
+    {"$sort": {"documents.tf": -1}},
+    {"$limit": 20},
+    {"$group": {
+        "_id": "$_id",
+        "term": {"$first": "$term"},
+        "documents": {"$push": "$documents"}
+    }}
+]
+
+# Execute the query
+results = collection.aggregate(pipeline)
+
+# Print the results
+for result in results:
+    print(result)
 
 # # Open /home/ilya2k/Documents/CS121/Project_3_Search_Engine/webpages/WEBPAGES_RAW/bookkeeping.json and output all url endings
 # import json

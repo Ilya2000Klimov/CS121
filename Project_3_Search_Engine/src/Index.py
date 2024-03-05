@@ -14,15 +14,22 @@ sys.path.append(str(root))
 from src.PageParser import PageParser
 from tqdm import tqdm
 from pathlib import Path
+from pymongo import MongoClient, UpdateOne
+import json
 
 class InverseIndex:
     def __init__(self, db_uri='localhost', db_port=27017, db_name='searchEngine', collection_name='Index', directory_path=root/'webpages/WEBPAGES_RAW'):
         self.client = MongoClient(db_uri, db_port)
         self.db = self.client[db_name]
         self.collection = self.db[collection_name]
+        self.documents = self.db['Documents']
+        #self.collection.create_index([("terms"), ("document_id")])
+        self.collection.create_index("_id")
+        self.collection.create_index("documents.document_id")
+        self.documents.create_index("_id")
         self.total_docs = 0
         self.directory_path = directory_path
-        
+
     def calculate_tf(self, term_freq, doc_length):
         # Calculate Term Frequency (TF)
         return term_freq / doc_length
@@ -32,19 +39,38 @@ class InverseIndex:
     def index_document(self, file_path, doc_id):
         # Parse the document, calculate metrics, and update the index for each term in the document
         parser = PageParser(self.directory_path)
-        document_data = parser.parse_document(file_path)
+        document_data = parser.parse_document(file_path, doc_id)
         doc_length = document_data['doc_size']
+        
+        # Convert dict_items to dictionary
+        token_frequency = dict(document_data['token_frequency'])
+        
+        # Push document_data to document collection
+        document_data = {
+            'doc_term_weight': sum(token_frequency.values()),
+            'doc_length': doc_length,
+            'token_frequency': list(token_frequency.items()),
+            'is_html': document_data["is_html"],
+            'url': document_data["url"],
+            'hrefs': document_data["hrefs"]
+        }
+        self.documents.update_one(
+            {'_id': doc_id},
+            {'$set': document_data},
+            upsert=True
+        )
+        
         
         # Prepare a list for bulk operations
         bulk_operations = []
 
-        for term, term_freq in document_data['token_frequency'].items():
-            tf = self.calculate_tf(term_freq, doc_length)
+        for term, term_freq in document_data['token_frequency']:
+            tf = term_freq #self.calculate_tf(term_freq, doc_length)
             doc_ref = {"document_id": doc_id, "tf": tf, "tfidf": 0}
 
             # Prepare the update operation
             update_operation = UpdateOne(
-                {"term": term},
+                {"_id": term},
                 {
                     "$push": {"documents": doc_ref}
                 },
@@ -109,6 +135,16 @@ class InverseIndex:
                 json_str = json.dumps(document, default=str)
                 # Write the JSON string to the file, followed by a newline character
                 file.write(json_str + '\n')
+                
+        docs=self.documents
+        # Open the file in write mode
+        with open('docs.json', 'w', encoding='utf-8') as file:
+            # Iterate over all documents in the collection
+            for document in docs.find():
+                # Convert the MongoDB document to a JSON string
+                json_str = json.dumps(document, default=str)
+                # Write the JSON string to the file, followed by a newline character
+                file.write(json_str + '\n')
     
     def load_index_from_file(self, file_path = 'index.json'):
         """
@@ -127,7 +163,7 @@ class InverseIndex:
                 self.collection.insert_one(document)
         
 
-    def calculate_TFIDF(self, batch_size=500):
+    def calculate_TFIDF(self, batch_size=100):
         # Calculate the TF-IDF score for each term-document pair in the collection
         
         #Print the number of terma in the collection
@@ -136,9 +172,9 @@ class InverseIndex:
         for term_entry in tqdm(self.collection.find(), desc="Calculating IDF"):
             # Calculate IDF for the term
             doc_freq = len(term_entry['documents'])
-            idf = math.log(self.total_docs / (1 + doc_freq))
+            idf = math.log(self.total_docs / doc_freq + 1)
             # Update the term's IDF in the collection
-            self.collection.update_one({"term": term_entry['term']}, {"$set": {"idf": idf}})
+            self.collection.update_one({"_id": term_entry['_id']}, {"$set": {"idf": idf}})
         
         
         
@@ -157,8 +193,8 @@ class InverseIndex:
             # Fetch the batch of term entries
             batch_term_entries = self.collection.find({}).skip(skip).limit(limit)
             
+            updates = []  # List to store the updates for the current batch
             for term_entry in tqdm(batch_term_entries, desc=f"Processing batch {batch_num + 1}/{num_batches}"):
-                updates = []  # List to store the updates for the current batch
                 
                 for doc in term_entry['documents']:
                     # Calculate the TF-IDF score
@@ -166,23 +202,25 @@ class InverseIndex:
                     
                     # Prepare the update operation
                     update = UpdateOne(
-                        {"term": term_entry['term'], "documents.document_id": doc['document_id']},
+                        {"_id": term_entry['_id'], "documents.document_id": doc['document_id']},
                         {"$set": {"documents.$.tfidf": tfidf}}
                     )
                     updates.append(update)
                 
             # Execute the bulk update for the current batch
+            print(f"Bulk write", end="")
             if updates:
                 self.collection.bulk_write(updates)
                 # empty updates list
                 updates = []
+            print(" complete")
     
     def process_term_entry(self, term_entry):
         updates = []
         for doc in term_entry['documents']:
             tfidf = (1 + math.log(doc['tf'])) * term_entry['idf']
             update = UpdateOne(
-                {"term": term_entry['term'], "documents.document_id": doc['document_id']},
+                {"_id": term_entry['_id'], "documents.document_id": doc['document_id']},
                 {"$set": {"documents.$.tfidf": tfidf}}
             )
             updates.append(update)
