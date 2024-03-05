@@ -23,10 +23,7 @@ class InverseIndex:
         self.db = self.client[db_name]
         self.collection = self.db[collection_name]
         self.documents = self.db['Documents']
-        #self.collection.create_index([("terms"), ("document_id")])
-        self.collection.create_index("_id")
-        self.collection.create_index("documents.document_id")
-        self.documents.create_index("_id")
+
         self.total_docs = 0
         self.directory_path = directory_path
 
@@ -65,7 +62,7 @@ class InverseIndex:
         bulk_operations = []
 
         for term, term_freq in document_data['token_frequency']:
-            tf = term_freq #self.calculate_tf(term_freq, doc_length)
+            tf = self.calculate_tf(term_freq, doc_length)
             doc_ref = {"document_id": doc_id, "tf": tf, "tfidf": 0}
 
             # Prepare the update operation
@@ -89,6 +86,15 @@ class InverseIndex:
     
     # Implement the logic to build the index for all documents in a directory
     def build_index(self):
+        # Drop the collection to remove any existing data
+        self.collection.drop()
+        self.documents.drop()
+        
+                #self.collection.create_index([("terms"), ("document_id")])
+        self.collection.create_index("_id")
+        self.collection.create_index("_id.documents.Document.document_id")
+        self.documents.create_index("_id")
+        
         directory_path = Path(self.directory_path)
         #for each subdirectory in the passed in directory directory in the 
         for dir in directory_path.iterdir(): #, desc=f"Indexing documents"):
@@ -198,7 +204,7 @@ class InverseIndex:
                 
                 for doc in term_entry['documents']:
                     # Calculate the TF-IDF score
-                    tfidf = (1 + math.log(doc['tf'])) * term_entry['idf']
+                    tfidf = (math.log(1 + doc['tf'])) * term_entry['idf']
                     
                     # Prepare the update operation
                     update = UpdateOne(
