@@ -45,16 +45,6 @@ class PageParser:
         stop_words = set(stopwords.words('english'))
         
         # Extract text and apply tokenization, stemming/lemmatization, and stopword removal
-        from nltk.util import ngrams
-
-        # Define the n-gram range
-        n = 2  # Change this value to the desired n-gram size
-
-        # Generate n-grams from the processed tokens
-        ngram_tokens = list(ngrams(processed_tokens, n))
-
-        # Update the token frequency counter with the n-grams
-        token_frequency.update(ngram_tokens)
         tokens = []
         count_tokens = 0
         if is_html:
@@ -62,16 +52,20 @@ class PageParser:
         else:
             # For XML, you might want to adjust how you handle tag importance
             tag_importance = {tag.name: 1 for tag in soup.find_all()}
-        
+
         token_frequency = Counter()
-        # processed_tokens = []
-        for tag, weight in tag_importance.items():
+        all_tags = set(tag.name for tag in soup.find_all())  # Collect all unique tag names from the document
+        default_weight = 1  # Default weight for tags not specified in tag_importance
+
+        for tag in all_tags:  # Iterate over all tags
+            weight = tag_importance.get(tag, default_weight)  # Use specified weight if tag is in tag_importance, otherwise use default weight
             for element in soup.find_all(tag):
                 words = self.tokenize(element.get_text())
                 processed_tokens = (self.process_token(word) for word in words if word.isalpha() and word not in stop_words)
                 for token in processed_tokens:
-                    token_frequency.update([token] * weight)
+                    token_frequency.update([token] * weight)  # Update frequency with the determined weight
                     count_tokens += 1
+
                 # tokens.extend(processed_tokens * weight)  # Duplicate tokens based on tag importance
                 
         hrefs = {}
