@@ -91,9 +91,7 @@ class InverseIndex:
         self.documents.drop()
         
                 #self.collection.create_index([("terms"), ("document_id")])
-        self.collection.create_index("_id")
-        self.collection.create_index("_id.documents.Document.document_id")
-        self.documents.create_index("_id")
+        self.collection.create_index([("_id.documents.document_id", 1)])
         
         directory_path = Path(self.directory_path)
         #for each subdirectory in the passed in directory directory in the 

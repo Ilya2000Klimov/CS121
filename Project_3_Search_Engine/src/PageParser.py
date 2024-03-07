@@ -10,11 +10,15 @@ import os
 import warnings
 import sys
 
+import pyprojroot
+root = pyprojroot.here()
+root = root/'Project_3_Search_Engine'
+
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
         
 class PageParser:
-    def __init__(self, directory_path):
+    def __init__(self, directory_path = root/'webpages/WEBPAGES_RAW'):
         self.stemmer = PorterStemmer()
         self.lemmatizer = WordNetLemmatizer()
         self.directory_path = directory_path
