@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
 from src.PageParser import PageParser
+from tqdm import tqdm
 
 
 class MongoDBSearch:
@@ -20,115 +21,115 @@ class MongoDBSearch:
         self.parser = PageParser()
 
     def search(self, query):
-        # Calculate the query vector
-        query_tokens, query_vector = self.calculate_vector(query)
+        # Calculate the initial query vector using the query_vector method
+        query_tokens, _ = self.query_vector(query)
+        query_tokens_set = set(query_tokens)
 
-        # Initialize a dictionary to hold document vectors
+        # Initialize a dictionary to hold document vectors and a set for all unique terms
         doc_vectors = {}
+        all_terms = set(query_tokens)  # Start with the query tokens
 
         # Retrieve document lists and TF-IDF scores for each query token
-        for token in query_tokens:
-            # Find the documents containing the token
+        for token in tqdm(query_tokens, desc="Retrieve document lists and TF-IDF scores for each query token"):
             result = self.collection.find_one({"_id": token})
             if result:
-                # Iterate over the documents for the current token
-                for doc in result['docs']:
-                    doc_id = doc['doc_id']
-                    tfidf_score = doc['tfidf']
-                    # Initialize the document vector with zeros if it's new
+                for doc in result['documents']:
+                    doc_id = doc['document_id']
                     if doc_id not in doc_vectors:
-                        doc_vectors[doc_id] = [0] * len(query_tokens)
-                    # Update the TF-IDF score in the document vector at the correct position
-                    index = query_tokens.index(token)
-                    doc_vectors[doc_id][index] = tfidf_score
+                        doc_vectors[doc_id] = []
 
-        # Calculate cosine similarity between the query vector and each document vector
-        similarities = {}
-        for doc_id, doc_vector in doc_vectors.items():
-            similarity = self.cosine_similarity(query_vector, doc_vector)
-            similarities[doc_id] = similarity
+                    # Retrieve the document to get all terms
+                    doc_details = self.documents.find_one({"_id": doc_id})
+                    if doc_details:
+                        for term, _ in doc_details['token_frequency']:
+                            all_terms.add(term)
 
-        # Rank documents by their cosine similarity scores (higher is better)
-        ranked_docs = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
+        # Extend query_tokens to include all terms from relevant documents
+        query_tokens = sorted(all_terms)
 
-        return ranked_docs
-    
-    def cosine_similarity(query_vector, doc_vectors):
+        # Construct document vectors and query vector
+        query_vector = [1 if token in query_tokens_set else 0 for token in query_tokens]
+        for doc_id in tqdm(doc_vectors.keys(), desc="Construct document vectors and query vector"):
+            doc_details = self.documents.find_one({"_id": doc_id})
+            doc_vector = [0] * len(query_tokens)  # Initialize doc vector with zeros
+            if doc_details:
+                for term, freq in doc_details['token_frequency']:
+                    if term in query_tokens:
+                        index = query_tokens.index(term)
+                        # Assume TF-IDF score is calculated here; replace freq with actual TF-IDF calculation
+                        doc_vector[index] = freq  
+            doc_vectors[doc_id] = doc_vector
 
-        # Convert the query vector to a 2D numpy array
-        query_vector_np = np.array(query_vector).reshape(1, -1)
-
-        # Extract document IDs and convert document vectors to a 2D numpy array
-        doc_ids = list(doc_vectors.keys())
-        doc_matrix = np.array(list(doc_vectors.values()))
-
-        # Calculate cosine similarities between the query vector and document vectors
-        similarities = cosine_similarity(query_vector_np, doc_matrix)
-
-        # Create a dictionary to map document IDs to their similarity scores
-        similarity_scores = {doc_id: sim[0] for doc_id, sim in zip(doc_ids, similarities)}
-
-        # Rank documents by their cosine similarity scores (higher is better)
-        ranked_docs = sorted(similarity_scores.items(), key=lambda x: x[1], reverse=True)
+        # Rank documents by their cosine similarity scores
+        ranked_docs = self.cosine_similarity(query_vector, doc_vectors)
 
         return ranked_docs
+
+    def cosine_similarity(self, query_vector, doc_vectors):
+        ranked_docs = []
         
+        # Convert query vector to numpy array for efficient computation
+        query_vector_np = np.array(query_vector)
 
-        # # Fetch all documents from the collection
-        # documents = self.collection.find()
+        for doc_id, doc_vector in doc_vectors.items():
+            # Convert document vector to numpy array
+            doc_vector_np = np.array(doc_vector)
 
-        # # Calculate the cosine similarity between each document and the query
-        # results = []
-        # for document in documents:
-        #     document_vector = self.calculate_vector(document['content'])
-        #     similarity = self.calculate_cosine_similarity(query_vector, document_vector)
-        #     results.append((document['_id'], similarity))
+            # Calculate dot product between query vector and document vector
+            dot_product = np.dot(query_vector_np, doc_vector_np)
 
-        # # Sort the results by similarity in descending order
-        # results.sort(key=lambda x: x[1], reverse=True)
+            # Calculate magnitude (norm) of query vector and document vector
+            query_norm = np.linalg.norm(query_vector_np)
+            doc_norm = np.linalg.norm(doc_vector_np)
 
-        # return results
+            # Avoid division by zero
+            if query_norm == 0 or doc_norm == 0:
+                similarity = 0
+            else:
+                # Calculate cosine similarity
+                similarity = dot_product / (query_norm * doc_norm)
+                #similarity *= (doc_norm/query_norm)
+
+            # Append doc_id and similarity score to ranked_docs
+            ranked_docs.append((doc_id, similarity))
+        
+        # doc_ids = list(doc_vectors.keys())
+        # # print(query_vector)
+        # # print(query_vector_np)
+        # doc_matrix = np.array(list(doc_vectors.values()))
+        # # print(doc_matrix)
+        # similarities = cosine_similarity(query_vector_np, doc_matrix)
+        # print(similarities)
+        # similarity_scores = {doc_id: score for doc_id, score in zip(doc_ids, similarities[0])}
+        # # print(f"similarity scores {similarity_scores}")
+        # ranked_docs = sorted(ranked_docs.items(), key=lambda x: x[1], reverse=True)
+        
+        ranked_docs.sort(key=lambda x: x[1], reverse=True)
+        return ranked_docs
 
     def query_vector(self, text):
-        # Split and stem the text, remove stopwords
         stop_words = set(stopwords.words('english'))
         words = self.parser.tokenize(text)
         processed_tokens = [self.parser.process_token(word) for word in words if word.isalpha() and word not in stop_words]
 
-        # Calculate the term frequency (TF) of processed tokens
         tf = {}
         for token in processed_tokens:
             tf[token] = tf.get(token, 0) + 1
 
-        # Normalize the TF values
         total_tokens = len(processed_tokens)
         for token in tf.keys():
             tf[token] /= total_tokens
 
-        # Initialize lists for tokens and their TF-IDF values
         tokens_in_order = []
         tfidf_values = []
-
-        # Calculate TF-IDF values and keep track of the token order
         for token in processed_tokens:
             if token not in tokens_in_order:
                 tokens_in_order.append(token)
-                idf_value = self.get_idf_value(token)  # Retrieve IDF value safely
+                idf_value = self.get_idf_value(token)
                 tfidf_values.append(tf[token] * idf_value)
 
         return tokens_in_order, tfidf_values
 
     def get_idf_value(self, token):
-        # Safely retrieve the IDF value for a token from the collection
         document = self.collection.find_one({"_id": token})
-        if document:
-            return document.get('idf', 0)  # Return the IDF value, or 0 if not found
-        else:
-            return 0  # Return 0 if the token is not found in the collection
-
-
-
-    def calculate_cosine_similarity(self, vector1, vector2):
-        # Implement your logic to calculate the cosine similarity between two vectors
-        # Return the cosine similarity value
-        ...
+        return document.get('idf', 0) if document else 0
