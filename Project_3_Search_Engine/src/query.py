@@ -17,50 +17,31 @@ class MongoDBSearch:
         self.client = MongoClient()
         self.db = self.client[db_name]
         self.collection = self.db[collection_name]
-        self.documents = self.db['Documents']
+        self.documents = self.db['documents']
         self.parser = PageParser()
 
     def search(self, query):
-        # Calculate the initial query vector using the query_vector method
-        query_tokens, _ = self.query_vector(query)
-        query_tokens_set = set(query_tokens)
+        # Calculate the query vector using the query_vector method
+        query_tokens, query_vector = self.query_vector(query)
 
-        # Initialize a dictionary to hold document vectors and a set for all unique terms
+        # Initialize a dictionary to hold document vectors
         doc_vectors = {}
-        all_terms = set(query_tokens)  # Start with the query tokens
 
         # Retrieve document lists and TF-IDF scores for each query token
-        for token in tqdm(query_tokens, desc="Retrieve document lists and TF-IDF scores for each query token"):
+        for token in query_tokens:
             result = self.collection.find_one({"_id": token})
             if result:
                 for doc in result['documents']:
                     doc_id = doc['document_id']
+                    tfidf_score = doc['tfidf']
                     if doc_id not in doc_vectors:
-                        doc_vectors[doc_id] = []
-
-                    # Retrieve the document to get all terms
-                    doc_details = self.documents.find_one({"_id": doc_id})
-                    if doc_details:
-                        for term, _ in doc_details['token_frequency']:
-                            all_terms.add(term)
-
-        # Extend query_tokens to include all terms from relevant documents
-        query_tokens = sorted(all_terms)
-
-        # Construct document vectors and query vector
-        query_vector = [1 if token in query_tokens_set else 0 for token in query_tokens]
-        for doc_id in tqdm(doc_vectors.keys(), desc="Construct document vectors and query vector"):
-            doc_details = self.documents.find_one({"_id": doc_id})
-            doc_vector = [0] * len(query_tokens)  # Initialize doc vector with zeros
-            if doc_details:
-                for term, freq in doc_details['token_frequency']:
-                    if term in query_tokens:
-                        index = query_tokens.index(term)
-                        # Assume TF-IDF score is calculated here; replace freq with actual TF-IDF calculation
-                        doc_vector[index] = freq  
-            doc_vectors[doc_id] = doc_vector
+                        doc_vectors[doc_id] = [0] * len(query_tokens)
+                    index = query_tokens.index(token)
+                    doc_vectors[doc_id][index] = tfidf_score
 
         # Rank documents by their cosine similarity scores
+        # print(doc_vectors)
+        # print(len(doc_vectors))
         ranked_docs = self.cosine_similarity(query_vector, doc_vectors)
 
         return ranked_docs
