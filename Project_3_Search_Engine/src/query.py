@@ -17,12 +17,14 @@ class MongoDBSearch:
         self.client = MongoClient()
         self.db = self.client[db_name]
         self.collection = self.db[collection_name]
-        self.documents = self.db['documents']
+        self.documents = self.db['Documents']
         self.parser = PageParser()
 
     def search(self, query):
         # Calculate the query vector using the query_vector method
         query_tokens, query_vector = self.query_vector(query)
+        
+
 
         # Initialize a dictionary to hold document vectors
         doc_vectors = {}
@@ -38,6 +40,12 @@ class MongoDBSearch:
                         doc_vectors[doc_id] = [0] * len(query_tokens)
                     index = query_tokens.index(token)
                     doc_vectors[doc_id][index] = tfidf_score
+            
+        #from self.documents load all the documents doc_vector[doc_id] at onece into a dictoinary
+        
+            
+        query_tokens.append("others")
+        query_vector.append(0) 
 
         # Rank documents by their cosine similarity scores
         # print(doc_vectors)
@@ -61,7 +69,7 @@ class MongoDBSearch:
 
             # Calculate magnitude (norm) of query vector and document vector
             query_norm = np.linalg.norm(query_vector_np)
-            doc_norm = np.linalg.norm(doc_vector_np)
+            doc_norm = self.documents.find_one({"_id": doc_id})['magnitude']
 
             # Avoid division by zero
             if query_norm == 0 or doc_norm == 0:
