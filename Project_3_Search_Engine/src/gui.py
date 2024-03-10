@@ -7,8 +7,11 @@ root = root/'Project_3_Search_Engine'
 src = root/'src'
 Test = root/'test'
 
+from src.query import MongoDBSearch
+
 class SearchEngineGUI:
     def __init__(self, root):
+        self.search = MongoDBSearch()
         self.root = root
         self.root.title("UCI Search Engine")
         self.root.geometry("1280x720")  # Set initial size to HD 1280x720
@@ -75,10 +78,37 @@ class SearchEngineGUI:
 
     def perform_search(self):
         query = self.search_var.get()
-        self.display_results(f"Results for '{query}' would be displayed here.")
+        ranked_docs = self.search.search(query)
+        # Fetch additional information for each document from MongoDB
+        ranked_results = []
+        for doc in ranked_docs[:20]:
+            doc_id = doc["doc_id"]
+            document = self.collection.find_one({"_id": doc_id})  # Assuming '_id' is used as the document ID in MongoDB
+            if document:
+                ranked_results.append(document)
+        self.display_results(ranked_results)
 
-    def display_results(self, results_text):
+    def display_results(self, ranked_results):
         self.results_area.config(state=tk.NORMAL)
         self.results_area.delete(1.0, tk.END)
-        self.results_area.insert(tk.END, results_text)
+
+        # Define tag configurations for different parts of the result
+        self.results_area.tag_configure('doc_id', foreground='grey')
+        self.results_area.tag_configure('url', foreground='grey')
+        self.results_area.tag_configure('title', foreground='blue', font=('Helvetica', 12, 'bold'))
+        self.results_area.tag_configure('summary', wrap=tk.WORD)
+        
+        # Display only the top 20 results
+        for result in ranked_results[:20]:
+            doc_id = result.get('doc_id', '')
+            url = result.get('url', '')
+            title = result.get('title', 'No Title')
+            summary = result.get('summary', 'No Summary')
+
+            # Insert each part of the result with its respective tag for styling
+            self.results_area.insert(tk.END, f'{doc_id}\n', 'doc_id')
+            self.results_area.insert(tk.END, f'{url}\n', 'url')
+            self.results_area.insert(tk.END, f'{title}\n', 'title')
+            self.results_area.insert(tk.END, f'{summary}\n\n', 'summary')
+
         self.results_area.config(state=tk.DISABLED)
