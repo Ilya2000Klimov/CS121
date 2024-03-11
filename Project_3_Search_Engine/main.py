@@ -33,29 +33,29 @@ with open(os.path.join(Index.directory_path, "bookkeeping.json"), 'r', encoding=
 
 
 # Run the GUI
-# root = tk.Tk()
-# app = SearchEngineGUI(root)
-# root.mainloop()
+root = tk.Tk()
+app = SearchEngineGUI(root)
+root.mainloop()
 
 # Runn the search
 search = MongoDBSearch()
 #print (search.query_vector("hello world"))
 ranked_docs = search.search("machine learning")  # Assuming search_instance is an instance of your MongoDBSearch class
 
-# Check if there are at least 20 documents, if not, take the length of ranked_docs
-top_n = 20 if len(ranked_docs) >= 20 else len(ranked_docs)
+# # Check if there are at least 20 documents, if not, take the length of ranked_docs
+# top_n = 20 if len(ranked_docs) >= 20 else len(ranked_docs)
 
-print(f"Top {top_n} Documents:")
-for i in range(top_n):
-    doc_id, similarity_score = ranked_docs[i]  # Unpack the tuple
-    print(f"{i+1}. Document ID: {doc_id}, Document URL {data[doc_id]}, Similarity Score: {similarity_score}")
+# print(f"Top {top_n} Documents:")
+# for i in range(top_n):
+#     doc_id, similarity_score = ranked_docs[i]  # Unpack the tuple
+#     print(f"{i+1}. Document ID: {doc_id}, Document URL {data[doc_id]}, Similarity Score: {similarity_score}")
     
     
-# Print the bottom 5 documents
-print(f"\nBottom 5 Documents:")
-for i in range(-5, 0):
-    doc_id, similarity_score = ranked_docs[i]  # Unpack the tuple
-    print(f"{i+1}. Document ID: {doc_id}, Similarity Score: {similarity_score}")
+# # Print the bottom 5 documents
+# print(f"\nBottom 5 Documents:")
+# for i in range(-5, 0):
+#     doc_id, similarity_score = ranked_docs[i]  # Unpack the tuple
+#     print(f"{i+1}. Document ID: {doc_id}, Similarity Score: {similarity_score}")
     
 
 # #outut url_endings to json file

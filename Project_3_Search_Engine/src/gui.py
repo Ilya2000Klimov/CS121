@@ -8,10 +8,17 @@ src = root/'src'
 Test = root/'test'
 
 from src.query import MongoDBSearch
+from pymongo import MongoClient
 
 class SearchEngineGUI:
     def __init__(self, root):
         self.search = MongoDBSearch()
+        self.client = MongoClient("localhost", 27017)
+        self.db = self.client["searchEngine"]
+        self.collection = self.db["DisplayDocuments"]
+        self.ranked_docs = []
+        
+        
         self.root = root
         self.root.title("UCI Search Engine")
         self.root.geometry("1280x720")  # Set initial size to HD 1280x720
@@ -50,7 +57,12 @@ class SearchEngineGUI:
         self.results_area = tk.Text(self.main_frame, height=15, width=60, wrap=tk.WORD, borderwidth=0, relief="flat")
         self.results_area.grid(row=2, column=0, pady=10, padx=5, sticky=(tk.W, tk.E, tk.N, tk.S))  # Make the results area expand with the window
         self.main_frame.columnconfigure(0, weight=1)  # Allow the column containing the results area to expand
+        self.main_frame.rowconfigure(2, weight=1)
         self.results_area.config(state=tk.DISABLED, bg='white')
+        
+        # Ensure that the main frame itself can expand within the root window
+        self.root.rowconfigure(0, weight=1)  # This makes the first row of the root, which contains main_frame, expandable
+        self.root.columnconfigure(0, weight=1)  # Make sure the column in the root window is also expandable
 
     def load_and_display_image(self):
         # Open the image using Pillow
@@ -82,10 +94,12 @@ class SearchEngineGUI:
         # Fetch additional information for each document from MongoDB
         ranked_results = []
         for doc in ranked_docs[:20]:
-            doc_id = doc["doc_id"]
+            #print(f"Found document {doc}")
+            doc_id = doc[0]
             document = self.collection.find_one({"_id": doc_id})  # Assuming '_id' is used as the document ID in MongoDB
             if document:
                 ranked_results.append(document)
+        #print(ranked_results)
         self.display_results(ranked_results)
 
     def display_results(self, ranked_results):
@@ -97,6 +111,8 @@ class SearchEngineGUI:
         self.results_area.tag_configure('url', foreground='grey')
         self.results_area.tag_configure('title', foreground='blue', font=('Helvetica', 12, 'bold'))
         self.results_area.tag_configure('summary', wrap=tk.WORD)
+        
+        self.results_area.insert(tk.END, f"{len(self.ranked_docs)} results found\nSearch Results\n", 'title')
         
         # Display only the top 20 results
         for result in ranked_results[:20]:

@@ -44,8 +44,8 @@ class MongoDBSearch:
         #from self.documents load all the documents doc_vector[doc_id] at onece into a dictoinary
         
             
-        query_tokens.append("others")
-        query_vector.append(0) 
+        # query_tokens.append("others")
+        # query_vector.append(0) 
 
         # Rank documents by their cosine similarity scores
         # print(doc_vectors)
